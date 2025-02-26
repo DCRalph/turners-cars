@@ -5,14 +5,14 @@ import { CarDetail } from "~/components/CarDetail";
 import { notFound } from "next/navigation";
 import BackButton from "~/components/BackButton";
 
-interface CarPageProps {
-  params: {
-    carId: string;
-  };
-}
+export default async function CarPage({
+  params,
+}: {
+  params: Promise<{ carId: string }>;
+}) {
+  const { carId } = await params;
 
-export default async function CarPage({ params }: CarPageProps) {
-  const car = await api.cars.getCarById({ carId: params.carId });
+  const car = await api.cars.getCarById({ carId });
 
   if (!car) {
     notFound();

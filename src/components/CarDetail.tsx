@@ -1,5 +1,5 @@
 // components/CarDetail.tsx
-import { cars } from "@prisma/client";
+import { type cars } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 import { ExternalLink, MapPin, Calendar, Clock, Tag, Info } from "lucide-react";
 import { CarGallery } from "./CarGallery";
