@@ -9,6 +9,9 @@ const config = {
   images: {
     domains: ["content.tgstatic.co.nz"],
   },
+  experimental: {
+    viewTransition: true,
+  },
 };
 
 export default config;

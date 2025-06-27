@@ -1,44 +1,316 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { type cars } from "@prisma/client";
 import { CarCard } from "~/components/CarCard";
 import { CarFilter } from "~/components/CarFilter";
 import { Button } from "~/components/ui/button";
+import { Badge } from "~/components/ui/badge";
+import { api } from "~/trpc/react";
+import {
+  RefreshCw,
+  AlertCircle,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import {
+  CarCardSkeleton,
+  FilterSkeleton,
+} from "~/components/ui/enhanced-skeleton";
 
-export default function CarFilterClient({ cars }: { cars: cars[] }) {
-  const [filteredCars, setFilteredCars] = useState<cars[]>(cars);
+function CarsGrid({ cars }: { cars: cars[] }) {
+  // Additional safety: deduplicate cars at render time
+  const uniqueCars = useMemo(() => {
+    const seen = new Set();
+    return cars.filter((car) => {
+      if (seen.has(car.id)) {
+        return false;
+      }
+      seen.add(car.id);
+      return true;
+    });
+  }, [cars]);
 
   return (
-    <>
-      <CarFilter cars={cars} onFilter={setFilteredCars} />
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      {uniqueCars.map((car) => (
+        <div key={`car-${car.id}-${car.carId}`}>
+          <CarCard car={car} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {filteredCars.map((car) => (
-          <CarCard key={car.id} car={car} />
+function EmptyState({
+  isLoading,
+  onReset,
+}: {
+  isLoading: boolean;
+  onReset: () => void;
+}) {
+  if (isLoading) return null;
+
+  return (
+    <div className="py-20 text-center">
+      <div>
+        <AlertCircle className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+        <h2 className="mb-2 text-2xl font-semibold">No cars found</h2>
+        <p className="mb-4 text-muted-foreground">
+          Try adjusting your search filters to find more results.
+        </p>
+        <Button onClick={onReset} variant="outline">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Reset Filters
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function LoadingError({
+  error,
+  onRetry,
+}: {
+  error: { message: string };
+  onRetry: () => void;
+}) {
+  return (
+    <div className="py-20 text-center">
+      <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
+      <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
+      <p className="mb-4 text-muted-foreground">{error.message}</p>
+      <Button onClick={onRetry} variant="outline">
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Try Again
+      </Button>
+    </div>
+  );
+}
+
+function Pagination({
+  currentPage,
+  total,
+  limit,
+  onPageChange,
+}: {
+  currentPage: number;
+  total: number;
+  limit: number;
+  onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.ceil(total / limit);
+
+  if (totalPages <= 1) return null;
+
+  const getVisiblePages = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+
+    for (
+      let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++
+    ) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, "...");
+    } else {
+      rangeWithDots.push(1);
+    }
+
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push("...", totalPages);
+    } else {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots;
+  };
+
+  const visiblePages = getVisiblePages();
+
+  return (
+    <div className="flex items-center justify-center gap-2 py-8">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="flex items-center gap-1"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Previous
+      </Button>
+
+      <div className="flex items-center gap-1">
+        {visiblePages.map((page, index) => (
+          <div key={index}>
+            {page === "..." ? (
+              <span className="px-3 py-2 text-sm text-muted-foreground">
+                ...
+              </span>
+            ) : (
+              <Button
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => onPageChange(page as number)}
+                className="min-w-[40px]"
+              >
+                {page}
+              </Button>
+            )}
+          </div>
         ))}
       </div>
 
-      {filteredCars.length === 0 && (
-        <div className="py-20 text-center">
-          <h2 className="mb-2 text-2xl font-semibold">No cars found</h2>
-          <p className="text-muted-foreground">
-            Try adjusting your search filters.
-          </p>
-        </div>
-      )}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="flex items-center gap-1"
+      >
+        Next
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
-      <div className="mt-6 flex justify-center">
+export default function CarListingsClient() {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "added" | "lastSeen" | "carPrice" | "carName"
+  >("lastSeen");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const limit = 24;
+
+  const queryConfig = useMemo(
+    () => ({
+      limit,
+      offset: (currentPage - 1) * limit,
+      search,
+      sortBy,
+      sortOrder,
+    }),
+    [currentPage, limit, search, sortBy, sortOrder],
+  );
+
+  const {
+    data,
+    isLoading: isQueryLoading,
+    error,
+    refetch,
+  } = api.cars.getAllCars.useQuery(queryConfig, {
+    staleTime: 30000, // Cache for 30 seconds
+    refetchOnWindowFocus: false,
+  });
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sortBy, sortOrder]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentPage]);
+
+  const handleFilterChange = useCallback(
+    (filters: {
+      search: string;
+      sortBy: "added" | "lastSeen" | "carPrice" | "carName";
+      sortOrder: "asc" | "desc";
+    }) => {
+      setSearch(filters.search);
+      setSortBy(filters.sortBy);
+      setSortOrder(filters.sortOrder);
+    },
+    [],
+  );
+
+  const handleReset = useCallback(() => {
+    setSearch("");
+    setSortBy("lastSeen");
+    setSortOrder("desc");
+    setCurrentPage(1);
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  const cars = data?.cars ?? [];
+  const total = data?.total ?? 0;
+  const isLoading = isQueryLoading;
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <Suspense fallback={<FilterSkeleton />}>
+        <CarFilter onFilter={handleFilterChange} />
+      </Suspense>
+
+      {/* Stats */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold">
+            {total > 0
+              ? `${total.toLocaleString()} Cars Found`
+              : "No Cars Found"}
+          </h2>
+          {search && (
+            <Badge variant="outline" className="text-sm">
+              {`Searching: "${search}"`}
+            </Badge>
+          )}
+        </div>
         <Button
           variant="outline"
-          className="btn btn-primary"
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isLoading}
+          className="flex items-center gap-2"
         >
-          back to top
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          Refresh
         </Button>
       </div>
-    </>
+
+      {/* Content */}
+      {error ? (
+        <LoadingError error={error} onRetry={() => refetch()} />
+      ) : isLoading ? (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <CarCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : cars.length === 0 ? (
+        <EmptyState isLoading={isLoading} onReset={handleReset} />
+      ) : (
+        <>
+          <CarsGrid cars={cars} />
+          <Pagination
+            currentPage={currentPage}
+            total={total}
+            limit={limit}
+            onPageChange={handlePageChange}
+          />
+        </>
+      )}
+    </div>
   );
 }

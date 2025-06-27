@@ -7,10 +7,22 @@ import { useRouter } from "next/navigation";
 export default function BackButton() {
   const router = useRouter();
 
+  const handleBack = () => {
+    router.back();
+  };
+
   return (
-    <Button variant="ghost" className="mb-6" onClick={() => router.back()}>
-      <ChevronLeft className="mr-2 h-4 w-4" />
-      Back to listings
-    </Button>
+    <div className="mb-6">
+      <Button
+        variant="ghost"
+        onClick={handleBack}
+        className="group hover:bg-accent"
+      >
+        <div className="flex items-center">
+          <ChevronLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Back to listings
+        </div>
+      </Button>
+    </div>
   );
 }

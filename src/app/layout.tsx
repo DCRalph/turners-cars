@@ -9,6 +9,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 
 // import { Inter } from "next/font/google";
 import { ThemeProvider } from "~/components/theme-provider";
+import Footer from "~/components/footer";
 
 // const inter = Inter({
 //   subsets: ["latin"],
@@ -34,7 +35,10 @@ export default function RootLayout({
           defaultTheme="dark"
           enableSystem={false}
         >
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+          <TRPCReactProvider>
+            <main className="flex min-h-screen flex-col">{children}</main>
+            <Footer />
+          </TRPCReactProvider>
         </ThemeProvider>
       </body>
     </html>

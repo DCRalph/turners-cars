@@ -1,9 +1,10 @@
 // app/[carId]/page.tsx
+import { Suspense } from "react";
 import { api } from "~/trpc/server";
 import { CarDetail } from "~/components/CarDetail";
-
-import { notFound } from "next/navigation";
 import BackButton from "~/components/BackButton";
+import { DetailPageSkeleton } from "~/components/ui/enhanced-skeleton";
+import { notFound } from "next/navigation";
 
 export default async function CarPage({
   params,
@@ -19,10 +20,14 @@ export default async function CarPage({
   }
 
   return (
-    <main className="container mx-auto flex flex-col items-center py-10">
-      <BackButton />
+    <div className="container mx-auto px-4 py-8">
+      <div className="mx-auto w-full max-w-4xl">
+        <BackButton />
 
-      <CarDetail car={car} />
-    </main>
+        <Suspense fallback={<DetailPageSkeleton />}>
+          <CarDetail car={car} />
+        </Suspense>
+      </div>
+    </div>
   );
 }
