@@ -8,7 +8,7 @@ export async function register() {
   ) {
     // Import modules only when needed to avoid circular dependencies
     const { runFullScraping } = await import(
-      "./src/lib/services/scraping-service"
+      "./lib/services/scraping-service"
     );
 
     console.log("Turners Car Scraping Instrumentation Started");
