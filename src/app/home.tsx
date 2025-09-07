@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { type cars } from "@prisma/client";
 import { CarCard } from "~/components/CarCard";
 import { CarFilter } from "~/components/CarFilter";
@@ -185,12 +186,21 @@ function Pagination({
 }
 
 export default function CarListingsClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<
     "added" | "lastSeen" | "carPrice" | "carName"
   >("lastSeen");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [currentPage, setCurrentPage] = useState(1);
+  const initialPage = useMemo(() => {
+    const p = Number(searchParams.get("page") ?? "1");
+    return Number.isFinite(p) && p > 0 ? p : 1;
+  }, [searchParams]);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const limit = 24;
 
@@ -211,14 +221,25 @@ export default function CarListingsClient() {
     error,
     refetch,
   } = api.cars.getAllCars.useQuery(queryConfig, {
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 60_000,
+    placeholderData: (prev) => prev,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
-  // Reset to first page when filters change
+  // Keep state in sync when URL changes (e.g., browser back/forward within list)
+  useEffect(() => {
+    const p = Number(searchParams.get("page") ?? "1");
+    const next = Number.isFinite(p) && p > 0 ? p : 1;
+    if (next !== currentPage) setCurrentPage(next);
+  }, [searchParams, currentPage]);
+
+  // Reset to first page when filters change (do not depend on searchParams to avoid loops)
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, sortBy, sortOrder]);
+    router.replace(`${pathname}?page=1`);
+  }, [pathname, router, search, sortBy, sortOrder]);
 
   // Scroll to top when page changes
   useEffect(() => {
@@ -245,13 +266,28 @@ export default function CarListingsClient() {
     setCurrentPage(1);
   }, []);
 
-  const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(page);
-  }, []);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      setCurrentPage(page);
+      const params = new URLSearchParams(searchParams);
+      params.set("page", String(page));
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [pathname, router, searchParams],
+  );
 
   const cars = data?.cars ?? [];
   const total = data?.total ?? 0;
-  const isLoading = isQueryLoading;
+  const isLoading = isQueryLoading && !data;
+
+  const handleManualRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -276,16 +312,17 @@ export default function CarListingsClient() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => refetch()}
-          disabled={isLoading}
+          onClick={handleManualRefresh}
+          disabled={isLoading || isRefreshing}
+          aria-busy={isRefreshing}
           className="flex items-center gap-2"
         >
-          {isLoading ? (
+          {isRefreshing ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <RefreshCw className="h-4 w-4" />
           )}
-          Refresh
+          {isRefreshing ? "Refreshing" : "Refresh"}
         </Button>
       </div>
 
@@ -309,6 +346,7 @@ export default function CarListingsClient() {
             limit={limit}
             onPageChange={handlePageChange}
           />
+          {/* background fetching indicator omitted to minimize layout shifts */}
         </>
       )}
     </div>

@@ -30,6 +30,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="dark">
       {/* <body className={`font-sans ${inter.variable}`}> */}
       <body className={`font-sans ${GeistSans.variable}`}>
+        <link rel="preconnect" href="https://content.tgstatic.co.nz" />
+        <link rel="dns-prefetch" href="//content.tgstatic.co.nz" />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

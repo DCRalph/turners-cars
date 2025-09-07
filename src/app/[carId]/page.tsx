@@ -6,6 +6,8 @@ import BackButton from "~/components/BackButton";
 import { DetailPageSkeleton } from "~/components/ui/enhanced-skeleton";
 import { notFound } from "next/navigation";
 
+export const revalidate = 300;
+
 export default async function CarPage({
   params,
 }: {

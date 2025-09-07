@@ -10,7 +10,10 @@ const config = {
     domains: ["content.tgstatic.co.nz"],
   },
   experimental: {
-    viewTransition: true,
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+    ],
   },
 };
 

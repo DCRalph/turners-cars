@@ -62,7 +62,7 @@ model cars {
 
   scrapedFrom String
 
-  carId     String
+  carId     String   @unique
   carName   String?
   carPrice  String?
   odometer  String?
@@ -71,4 +71,8 @@ model cars {
   detailUrl String?
   added     DateTime
   lastSeen  DateTime
+
+  @@index([added, lastSeen])
+  @@index([carName])
+  @@index([location])
 }

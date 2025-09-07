@@ -24,7 +24,7 @@ export function CarCard({ car }: CarCardProps) {
 
   return (
     <div className="h-full">
-      <Link href={`/${car.carId}`} className="block h-full">
+      <Link href={`/${car.carId}`} className="block h-full" prefetch>
         <Card className="group h-full overflow-hidden transition-all duration-300 hover:border-primary/50 hover:shadow-lg dark:hover:shadow-primary/5">
           <CardHeader className="relative aspect-video overflow-hidden p-0">
             <div className="relative h-full w-full">

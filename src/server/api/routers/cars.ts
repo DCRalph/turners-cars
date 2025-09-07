@@ -20,11 +20,12 @@ export const carsRouter = createTRPCRouter({
 
       const where = search
         ? {
-            OR: [
-              { carName: { contains: search, mode: "insensitive" as const } },
-              { location: { contains: search, mode: "insensitive" as const } },
-            ],
-          }
+          OR: [
+            { carName: { contains: search, mode: "insensitive" as const } },
+            { location: { contains: search, mode: "insensitive" as const } },
+            { carId: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
         : {};
 
       const [cars, total] = await Promise.all([
@@ -47,7 +48,7 @@ export const carsRouter = createTRPCRouter({
   getCarById: publicProcedure
     .input(z.object({ carId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const car = await ctx.db.cars.findFirst({
+      const car = await ctx.db.cars.findUnique({
         where: { carId: input.carId },
       });
 

@@ -22,7 +22,9 @@ const SCRAPING_CONFIG = [
   // },
   {
     type: "turners",
-    url: "https://www.turners.co.nz/Cars/Used-Cars-for-Sale/?sortorder=6%2CDESC&pagesize=110&pageno={}&issearchsimilar=true",
+    // url: "https://www.turners.co.nz/Cars/Used-Cars-for-Sale/?sortorder=7%2CDESC&pagesize={pagesize}&pageno={pageno}&issearchsimilar=true",
+    // url: "https://www.turners.co.nz/Cars/Used-Cars-for-Sale/?sortorder=7&pagesize={pagesize}&pageno={pageno}&issearchsimilar=true",
+    url: "https://www.turners.co.nz/Cars/Used-Cars-for-Sale/?sortorder=7&pagesize=110&pageno={pageno}&issearchsimilar=true",
   },
 ];
 
@@ -34,6 +36,7 @@ const SCRAPER_FUNCTIONS = {
 
 export interface ScrapingStats {
   totalCarsProcessed: number;
+  totalCars: number;
   newCarsAdded: number;
   existingCarsUpdated: number;
   errors: string[];
@@ -46,12 +49,13 @@ export async function runFullScraping(): Promise<ScrapingStats> {
   const startTime = new Date();
   const errors: string[] = [];
   let totalCarsProcessed = 0;
+  let newCarsAdded = 0;
+  let existingCarsUpdated = 0;
+  const allCars: CarData[] = [];
 
   console.log("Starting full scraping process...");
 
   try {
-    const allCars: CarData[] = [];
-
     for (const config of SCRAPING_CONFIG) {
       const scraperType = config.type as keyof typeof SCRAPER_FUNCTIONS;
       const urlTemplate = config.url;
@@ -83,7 +87,9 @@ export async function runFullScraping(): Promise<ScrapingStats> {
     // Upsert cars to database
     if (allCars.length > 0) {
       console.log("Upserting cars to database...");
-      await upsertCars(allCars);
+      const result = await upsertCars(allCars);
+      newCarsAdded = result.newCarsAdded;
+      existingCarsUpdated = result.existingCarsUpdated;
       console.log("Database operations completed");
     }
   } catch (error) {
@@ -97,8 +103,9 @@ export async function runFullScraping(): Promise<ScrapingStats> {
 
   const stats: ScrapingStats = {
     totalCarsProcessed,
-    newCarsAdded: 0, // We would need to track this separately in upsertCars
-    existingCarsUpdated: 0, // We would need to track this separately in upsertCars
+    totalCars: allCars.length,
+    newCarsAdded,
+    existingCarsUpdated,
     errors,
     duration,
     startTime,
@@ -107,8 +114,11 @@ export async function runFullScraping(): Promise<ScrapingStats> {
 
   console.log("Scraping completed:", {
     totalCarsProcessed: stats.totalCarsProcessed,
+    totalCars: stats.totalCars,
     duration: `${duration}ms`,
     errors: stats.errors.length,
+    newCarsAdded: stats.newCarsAdded,
+    existingCarsUpdated: stats.existingCarsUpdated,
   });
 
   return stats;
@@ -132,3 +142,5 @@ export async function runSingleSiteScraping(
 
   return cars;
 }
+
+// await runFullScraping();

@@ -67,7 +67,8 @@ export function CarGallery({ photos, carName }: CarGalleryProps) {
                   alt={`${carName ?? "Car"} image ${index + 1} of ${photos.length}`}
                   fill
                   className="object-cover"
-                  priority
+                  priority={index === 0}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1200px"
                 />
               </div>
             </CarouselItem>
@@ -92,9 +93,8 @@ export function CarGallery({ photos, carName }: CarGalleryProps) {
         {photos.map((_, index) => (
           <Button
             key={index}
-            className={`h-3 w-3 rounded-full p-2 transition-all ${
-              index === current ? "bg-primary w-6" : "bg-muted"
-            }`}
+            className={`h-3 w-3 rounded-full p-2 transition-all ${index === current ? "bg-primary w-6" : "bg-muted"
+              }`}
             onClick={() => {
               if (api) {
                 api.scrollTo(index);

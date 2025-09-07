@@ -1,8 +1,27 @@
 import { db } from "~/server/db";
 import type { CarData } from "../scrapers/turners";
 
-export async function upsertCars(cars: CarData[]): Promise<void> {
+export async function upsertCars(cars: CarData[]): Promise<{
+  newCarsAdded: number;
+  existingCarsUpdated: number;
+}> {
   const now = new Date();
+
+  let newCarsAdded = 0;
+  let existingCarsUpdated = 0;
+
+  // loop through cars and find duplicates of carID
+  const duplicates: Record<string, CarData[]> = {};
+  for (const car of cars) {
+    if (duplicates[car.carId]) {
+      duplicates[car.carId]!.push(car);
+    } else {
+      duplicates[car.carId] = [car];
+    }
+  }
+
+  // fs.writeFileSync("cars.json", JSON.stringify(cars, null, 2));
+  // fs.writeFileSync("duplicates.json", JSON.stringify(duplicates, null, 2));
 
   for (const car of cars) {
     try {
@@ -28,6 +47,7 @@ export async function upsertCars(cars: CarData[]): Promise<void> {
           },
         });
         console.log("Inserted car:", car.carId);
+        newCarsAdded++;
       } else {
         // Update lastSeen timestamp for existing record
         await db.cars.update({
@@ -35,26 +55,12 @@ export async function upsertCars(cars: CarData[]): Promise<void> {
           data: { lastSeen: now },
         });
         console.log("Updated car:", car.carId);
+        existingCarsUpdated++;
       }
     } catch (error) {
       console.error(`Error upserting car ${car.carId}:`, error);
     }
   }
-}
 
-export async function getCarCount(): Promise<number> {
-  return await db.cars.count();
-}
-
-export async function getRecentlySeenCars(hours = 24): Promise<number> {
-  const since = new Date();
-  since.setHours(since.getHours() - hours);
-
-  return await db.cars.count({
-    where: {
-      lastSeen: {
-        gte: since,
-      },
-    },
-  });
+  return { newCarsAdded, existingCarsUpdated };
 }

@@ -11,12 +11,13 @@ export async function register() {
       "./src/lib/services/scraping-service"
     );
 
-    console.log("🚀 Turners Car Scraping Instrumentation Started");
+    console.log("Turners Car Scraping Instrumentation Started");
 
     cron.schedule(
-      "*/15 * * * *", // every 15 minutes
+      // "*/15 * * * *", // every 15 minutes
+      "0 */2 * * *", // every 2 hours
       async () => {
-        console.log("⏰ Starting scheduled car scraping...");
+        console.log("Starting scheduled car scraping...");
 
         try {
           const stats = await runFullScraping();
@@ -62,10 +63,10 @@ export async function register() {
       }, 5000); // 5 second delay
     }
 
-    console.log("📅 Car scraping scheduled to run");
+    console.log("Car scraping scheduled");
   } else {
     console.log(
-      "🔒 Car scraping instrumentation disabled (not in production mode)",
+      "Car scraping disabled",
     );
   }
 }
