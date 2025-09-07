@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import Head from "next/head";
 import { type cars } from "@prisma/client";
 import { CarCard } from "~/components/CarCard";
 import { CarFilter } from "~/components/CarFilter";
@@ -228,6 +229,82 @@ export default function CarListingsClient() {
     refetchOnReconnect: false,
   });
 
+  const utils = api.useUtils();
+
+  // Prefetch next and previous page data to warm the cache
+  useEffect(() => {
+    const nextPage = currentPage + 1;
+    const prevPage = currentPage - 1;
+
+    const tasks: Promise<unknown>[] = [];
+
+    // Prefetch next page if there might be more
+    if (data?.hasMore) {
+      tasks.push(
+        utils.cars.getAllCars.prefetch({
+          limit,
+          offset: (nextPage - 1) * limit,
+          search,
+          sortBy,
+          sortOrder,
+        }),
+      );
+    }
+
+    // Prefetch previous page if applicable
+    if (prevPage >= 1) {
+      tasks.push(
+        utils.cars.getAllCars.prefetch({
+          limit,
+          offset: (prevPage - 1) * limit,
+          search,
+          sortBy,
+          sortOrder,
+        }),
+      );
+    }
+
+    if (tasks.length > 0) {
+      void Promise.all(tasks);
+    }
+  }, [currentPage, data?.hasMore, limit, search, sortBy, sortOrder, utils.cars.getAllCars]);
+
+  // Compute image URLs from next and previous page to preload
+  const preloadImageUrls = useMemo(() => {
+    const urls = new Set<string>();
+
+    const nextPage = currentPage + 1;
+    const prevPage = currentPage - 1;
+
+    if (data?.hasMore) {
+      const nextData = utils.cars.getAllCars.getData({
+        limit,
+        offset: (nextPage - 1) * limit,
+        search,
+        sortBy,
+        sortOrder,
+      });
+      nextData?.cars.forEach((c) => {
+        if (c.photos?.[0]) urls.add(c.photos[0]);
+      });
+    }
+
+    if (prevPage >= 1) {
+      const prevData = utils.cars.getAllCars.getData({
+        limit,
+        offset: (prevPage - 1) * limit,
+        search,
+        sortBy,
+        sortOrder,
+      });
+      prevData?.cars.forEach((c) => {
+        if (c.photos?.[0]) urls.add(c.photos[0]);
+      });
+    }
+
+    return Array.from(urls);
+  }, [currentPage, data?.hasMore, limit, search, sortBy, sortOrder, utils.cars.getAllCars]);
+
   // Keep state in sync when URL changes (e.g., browser back/forward within list)
   useEffect(() => {
     const p = Number(searchParams.get("page") ?? "1");
@@ -291,6 +368,12 @@ export default function CarListingsClient() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Preload next/prev grid thumbnails */}
+      <Head>
+        {preloadImageUrls.map((href) => (
+          <link key={href} rel="preload" as="image" href={href} />
+        ))}
+      </Head>
       <Suspense fallback={<FilterSkeleton />}>
         <CarFilter onFilter={handleFilterChange} />
       </Suspense>

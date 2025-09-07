@@ -5,6 +5,7 @@ import { CarDetail } from "~/components/CarDetail";
 import BackButton from "~/components/BackButton";
 import { DetailPageSkeleton } from "~/components/ui/enhanced-skeleton";
 import { notFound } from "next/navigation";
+// import Head from "next/head";
 
 export const revalidate = 300;
 
@@ -23,6 +24,12 @@ export default async function CarPage({
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Preload all images for this car detail page */}
+      {/* <Head>
+        {car.photos?.map((href, i) => (
+          <link key={`${href}-${i}`} rel="preload" as="image" href={href ?? ""} />
+        ))}
+      </Head> */}
       <div className="mx-auto w-full max-w-4xl">
         <BackButton />
 

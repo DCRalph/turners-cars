@@ -67,7 +67,8 @@ export function CarGallery({ photos, carName }: CarGalleryProps) {
                   alt={`${carName ?? "Car"} image ${index + 1} of ${photos.length}`}
                   fill
                   className="object-cover"
-                  priority={index === 0}
+                  priority={true}
+                  loading="eager"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1200px"
                 />
               </div>
